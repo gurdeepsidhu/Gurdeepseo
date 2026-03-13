@@ -5,35 +5,51 @@ from io import BytesIO
 import time
 
 # ============================================================
-# ⚠️ APNI 3 NAYI API KEYS YAHAN DAALO
-# Har key ke saamne quotes ke andar apni key likhein
+# GURJEET BHAI — SIRF YAHAN APNI KEYS DAALO
+#
+# IMPORTANT: Teen ALAG Google accounts se keys banao!
+# Ek hi account ki 3 keys = same quota = fayda nahi
+#
+# Keys kahan banayein:
+#   https://aistudio.google.com/app/apikey
+#
+# Account 1: apna main Gmail
+# Account 2: dusra Gmail (ya family ka)
+# Account 3: teesra Gmail (ya koi bhi)
 # ============================================================
-API_KEYS = [
-    "AIzaSyDfyNzUJPVm5wIah8e2OLMFxjmZxbjcsKU",   # ← Key 1 yahan
-    "AIzaSyAFuh2kWBvAdqfYhvYxqeB2Bt3JocoCALk",   # ← Key 2 yahan
-    "AIzaSyArpeE6WpdCkW2LBm8UdaAhN8AXo-KYdSY",   # ← Key 3 yahan
-]
+
+KEY_FROM_ACCOUNT_1 = "ACCOUNT_1_KI_KEY_YAHAN"   # <- Pehle Gmail ki key
+KEY_FROM_ACCOUNT_2 = "ACCOUNT_2_KI_KEY_YAHAN"   # <- Doosre Gmail ki key
+KEY_FROM_ACCOUNT_3 = "ACCOUNT_3_KI_KEY_YAHAN"   # <- Teesre Gmail ki key
 
 # ============================================================
 # PAGE SETUP
 # ============================================================
-st.set_page_config(
-    page_title="AgencyWriter Pro",
-    page_icon="🖋️",
-    layout="wide"
-)
-
-st.title("🖋️ Professional Agency Content Engine")
-st.markdown("**Powered by Google Gemini 2.0 Flash — 3 Keys Auto Rotation**")
+st.set_page_config(page_title="AgencyWriter Pro", page_icon="✍️", layout="wide")
+st.title("✍️ AgencyWriter Pro")
+st.markdown("**AI Content Engine — 3 Account Rotation System**")
 st.markdown("---")
 
 # ============================================================
-# ARTICLE GENERATION — 3 KEYS + 2 MODELS = 6 ATTEMPTS
-# Ek bhi fail hogi toh dusri automatically try hogi
+# MODEL SETUP
+# Best free models (March 2026):
+#   gemini-2.5-flash-lite  -> 1000 requests/day (SABSE ZYADA!)
+#   gemini-2.5-flash       -> 250 requests/day
+#   gemini-2.0-flash       -> limited but stable
+# ============================================================
+ALL_COMBOS = [
+    (KEY_FROM_ACCOUNT_1, "gemini-2.5-flash-lite"),   # Account 1, best model
+    (KEY_FROM_ACCOUNT_2, "gemini-2.5-flash-lite"),   # Account 2, best model
+    (KEY_FROM_ACCOUNT_3, "gemini-2.5-flash-lite"),   # Account 3, best model
+    (KEY_FROM_ACCOUNT_1, "gemini-2.5-flash"),        # Account 1, backup
+    (KEY_FROM_ACCOUNT_2, "gemini-2.5-flash"),        # Account 2, backup
+    (KEY_FROM_ACCOUNT_3, "gemini-2.5-flash"),        # Account 3, backup
+]
+
+# ============================================================
+# ARTICLE GENERATION FUNCTION
 # ============================================================
 def generate_article(topic, word_count, tone, language):
-    models_to_try = ['gemini-2.0-flash', 'gemini-2.0-flash-lite']
-
     prompt = f"""
     Write a high-quality, SEO-optimized article on the topic: '{topic}'.
 
@@ -41,147 +57,153 @@ def generate_article(topic, word_count, tone, language):
     - Word Count: Approximately {word_count} words
     - Tone: {tone}
     - Language: {language}
-    - Style: Human-written, no AI cliches, engaging and informative
+    - Style: Human-written, engaging, no robotic language
 
-    Structure (use proper Markdown formatting):
-    1. # Main Title (H1)
-    2. ## Introduction
-    3. ## Section 1 - Background / Overview
-    4. ## Section 2 - Key Points / Details
-    5. ## Section 3 - Benefits / Importance
-    6. ## Section 4 - Practical Tips / How-to
-    7. ## Section 5 - Common Mistakes to Avoid
-    8. ## Section 6 - Future Outlook / Trends
+    Structure (use Markdown):
+    1. # Catchy Main Title
+    2. ## Introduction  
+    3. ## Background & Overview
+    4. ## Key Points & Details
+    5. ## Benefits & Importance
+    6. ## Practical Tips (step by step)
+    7. ## Common Mistakes to Avoid
+    8. ## Future Trends
     9. ## Conclusion
-    10. ## FAQ (5 questions with answers)
+    10. ## FAQ (5 questions with detailed answers)
 
-    Important: Use bullet points, bold text, and clear headings throughout.
+    Use bullet points, bold important words, and clear headings.
+    Make it feel human-written, not AI-generated.
     """
 
-    attempt = 0
-    total = len(API_KEYS) * len(models_to_try)
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    total = len(ALL_COMBOS)
 
-    for key_index, api_key in enumerate(API_KEYS):
-        for model_name in models_to_try:
-            attempt += 1
-            try:
-                st.info(f"Trying... Key {key_index+1} + {model_name} (Attempt {attempt}/{total})")
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                return response.text, model_name, key_index + 1
+    for i, (api_key, model_name) in enumerate(ALL_COMBOS):
+        progress_bar.progress((i) / total)
+        account_num = (i % 3) + 1
+        status_text.info(f"🔄 Account {account_num} + {model_name} try kar raha hoon... ({i+1}/{total})")
 
-            except Exception as e:
-                error_str = str(e)
-                if "429" in error_str:
-                    st.warning(f"Key {key_index+1} + {model_name} rate limit. Next try...")
-                    time.sleep(2)
-                    continue
-                elif "404" in error_str:
-                    st.warning(f"{model_name} not available. Next try...")
-                    continue
-                elif "API_KEY" in error_str or "invalid" in error_str.lower():
-                    st.error(f"Key {key_index+1} invalid hai! Sahi key daalo.")
-                    continue
-                else:
-                    st.warning(f"Error: {error_str[:80]}... Next try...")
-                    continue
+        # Key check — agar placeholder hai toh skip
+        if "YAHAN" in api_key or len(api_key) < 20:
+            status_text.warning(f"⚠️ Account {account_num} ki key nahi daali. Skip...")
+            time.sleep(0.5)
+            continue
 
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            progress_bar.progress(1.0)
+            status_text.success(f"✅ Kaam kar gaya! Account {account_num} + {model_name}")
+            return response.text, model_name, account_num
+
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str:
+                status_text.warning(f"⚠️ Account {account_num} rate limit. Next try...")
+                time.sleep(2)
+            elif "404" in error_str:
+                status_text.warning(f"⚠️ {model_name} available nahi. Next...")
+            elif "API_KEY" in error_str or "invalid" in error_str.lower() or "400" in error_str:
+                status_text.error(f"❌ Account {account_num} ki key galat hai!")
+                time.sleep(1)
+            else:
+                status_text.warning(f"⚠️ Error: {str(e)[:60]}...")
+                time.sleep(1)
+            continue
+
+    progress_bar.progress(1.0)
     return None, None, None
 
-# ============================================================
-# SIDEBAR SETTINGS
-# ============================================================
-st.sidebar.header("Article Settings")
 
+# ============================================================
+# SIDEBAR
+# ============================================================
+st.sidebar.header("⚙️ Settings")
 word_count = st.sidebar.select_slider(
-    "Word Count:",
+    "📝 Word Count",
     options=[500, 800, 1000, 1500, 2000],
     value=1000
 )
-
 tone = st.sidebar.radio(
-    "Writing Tone:",
-    options=["Professional & Formal", "Casual & Friendly", "Academic & Research"],
-    index=0
+    "🎨 Tone",
+    ["Professional & Formal", "Casual & Friendly", "Academic"]
 )
-
 language = st.sidebar.radio(
-    "Language:",
-    options=["English", "Hinglish (Hindi + English Mix)"],
-    index=0
+    "🌐 Language",
+    ["English", "Hindi", "Hinglish (Hindi+English)"]
 )
-
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Keys Loaded:** 3 Active")
-st.sidebar.markdown("**Models:** gemini-2.0-flash + lite")
-st.sidebar.markdown("**Total Attempts:** 6 per request")
+st.sidebar.markdown("**ℹ️ Free Limits (per account):**")
+st.sidebar.markdown("• gemini-2.5-flash-lite: 1000/day")
+st.sidebar.markdown("• gemini-2.5-flash: 250/day")
+st.sidebar.markdown("• 3 accounts = 3x quota!")
+
 
 # ============================================================
 # MAIN UI
 # ============================================================
-st.subheader("Enter Your Topic")
-
+st.subheader("📌 Article Topic")
 topic = st.text_input(
     "Topic likhiye:",
-    placeholder="e.g., Digital Marketing Trends 2026, AI in Healthcare..."
+    placeholder="e.g., Digital Marketing Trends 2026, Benefits of Yoga, AI Tools for Business..."
 )
-
-extra_context = st.text_area(
-    "Additional Context (Optional):",
-    placeholder="Koi specific points jo include karne hain?",
+extra = st.text_area(
+    "📋 Extra Details (Optional):",
+    placeholder="Koi specific angle, audience, ya points include karne hain?",
     height=80
 )
 
-col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-with col_btn2:
-    generate_btn = st.button("Generate Article", use_container_width=True, type="primary")
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    go = st.button("🚀 Generate Article", use_container_width=True, type="primary")
 
 # ============================================================
-# GENERATION LOGIC
+# RUN
 # ============================================================
-if generate_btn:
+if go:
     if not topic.strip():
-        st.error("Topic khali hai! Kuch toh likhiye.")
+        st.error("❌ Topic daalna zaroori hai!")
     else:
         full_topic = topic
-        if extra_context.strip():
-            full_topic = f"{topic}\n\nAdditional context: {extra_context}"
+        if extra.strip():
+            full_topic = f"{topic}\n\nExtra details: {extra}"
 
-        with st.spinner(f"Writing jari hai... (~{word_count} words)"):
-            content, used_model, used_key = generate_article(full_topic, word_count, tone, language)
+        st.markdown("---")
+        content, used_model, used_account = generate_article(
+            full_topic, word_count, tone, language
+        )
 
         if content:
-            st.success(f"Article taiyar! | Model: {used_model} | Key #{used_key} use hui")
             st.markdown("---")
+            left, right = st.columns([3, 1])
 
-            col1, col2 = st.columns([3, 1])
-
-            with col1:
-                st.subheader("Article Preview")
-                with st.expander("Formatted Preview", expanded=True):
+            with left:
+                st.subheader("📄 Article Preview")
+                with st.expander("👁️ Formatted (Recommended)", expanded=True):
                     st.markdown(content)
-                with st.expander("Plain Text (Copy/Paste ke liye)"):
+                with st.expander("📋 Plain Text (Copy ke liye)"):
                     st.text_area("", value=content, height=400, label_visibility="collapsed")
 
-            with col2:
-                st.subheader("Export")
+            with right:
+                st.subheader("💾 Download")
 
-                # Word Document
+                # Word file banana
                 doc = Document()
                 doc.add_heading(topic, level=0)
                 for line in content.split('\n'):
                     line = line.strip()
                     if not line:
                         continue
-                    if line.startswith('# ') and not line.startswith('## '):
-                        doc.add_heading(line.replace('# ', ''), level=1)
+                    if line.startswith('# ') and not line.startswith('##'):
+                        doc.add_heading(line[2:], level=1)
                     elif line.startswith('## '):
-                        doc.add_heading(line.replace('## ', ''), level=2)
+                        doc.add_heading(line[3:], level=2)
                     elif line.startswith('### '):
-                        doc.add_heading(line.replace('### ', ''), level=3)
-                    elif line.startswith('- ') or line.startswith('* '):
-                        doc.add_paragraph(line.replace('- ', '').replace('* ', ''), style='List Bullet')
+                        doc.add_heading(line[4:], level=3)
+                    elif line.startswith(('- ', '* ', '• ')):
+                        doc.add_paragraph(line[2:], style='List Bullet')
                     else:
                         doc.add_paragraph(line)
 
@@ -190,39 +212,46 @@ if generate_btn:
                 bio.seek(0)
 
                 st.download_button(
-                    label="Download Word (.docx)",
+                    "📥 Word File (.docx)",
                     data=bio.getvalue(),
-                    file_name=f"{topic[:30].replace(' ', '_')}.docx",
+                    file_name=f"{topic[:25].replace(' ','_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
-
                 st.download_button(
-                    label="Download Text (.txt)",
+                    "📄 Text File (.txt)",
                     data=content.encode('utf-8'),
-                    file_name=f"{topic[:30].replace(' ', '_')}.txt",
+                    file_name=f"{topic[:25].replace(' ','_')}.txt",
                     mime="text/plain",
                     use_container_width=True
                 )
-
                 st.markdown("---")
                 st.metric("Words", len(content.split()))
                 st.metric("Characters", len(content))
+                st.caption(f"Model: {used_model}")
+                st.caption(f"Account: #{used_account}")
 
         else:
-            st.error("Saari 6 attempts fail ho gayi.")
+            st.markdown("---")
+            st.error("❌ Koi bhi attempt kaam nahi ki.")
             st.markdown("""
-            **Kya karein:**
-            - 15-20 minute baad try karein (rate limit reset hoti hai)
-            - API keys check karein — Google AI Studio se nayi banao
-            - Internet connection check karein
+            ### 🔧 Kya karein:
+
+            **Sabse pehle check karein:**
+            - Kya teeno keys **ALAG Gmail accounts** se bani hain?
+            - Ek hi Gmail account ki 3 keys = same quota = same error!
+
+            **Steps:**
+            1. [aistudio.google.com](https://aistudio.google.com/app/apikey) kholo
+            2. **Doosre Gmail se login** karo (ya nayi Gmail banao — free hai)
+            3. Nayi key banao, `app.py` mein `KEY_FROM_ACCOUNT_2` mein daalo
+            4. Dobara try karo
+
+            **Ya 15-20 minute wait karein** — rate limit automatically reset hoti hai
             """)
 
 # ============================================================
 # FOOTER
 # ============================================================
 st.markdown("---")
-st.markdown(
-    "<p style='text-align:center; color:gray;'>AgencyWriter Pro | 3-Key Rotation System | Free Tier</p>",
-    unsafe_allow_html=True
-)
+st.caption("AgencyWriter Pro | gemini-2.5-flash-lite | 3 Account Rotation | Free Tier")
