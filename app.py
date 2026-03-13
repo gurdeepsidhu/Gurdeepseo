@@ -5,7 +5,17 @@ from io import BytesIO
 import time
 
 # ============================================================
-# PAGE SETUP - Browser tab ka title aur icon set karta hai
+# ⚠️ APNI 3 NAYI API KEYS YAHAN DAALO
+# Har key ke saamne quotes ke andar apni key likhein
+# ============================================================
+API_KEYS = [
+    "AIzaSyDfyNzUJPVm5wIah8e2OLMFxjmZxbjcsKU",   # ← Key 1 yahan
+    "AIzaSyAFuh2kWBvAdqfYhvYxqeB2Bt3JocoCALk",   # ← Key 2 yahan
+    "AIzaSyArpeE6WpdCkW2LBm8UdaAhN8AXo-KYdSY",   # ← Key 3 yahan
+]
+
+# ============================================================
+# PAGE SETUP
 # ============================================================
 st.set_page_config(
     page_title="AgencyWriter Pro",
@@ -13,65 +23,17 @@ st.set_page_config(
     layout="wide"
 )
 
-# ============================================================
-# APP HEADER
-# ============================================================
 st.title("🖋️ Professional Agency Content Engine")
-st.markdown("**Powered by Google Gemini 2.0 Flash**")
+st.markdown("**Powered by Google Gemini 2.0 Flash — 3 Keys Auto Rotation**")
 st.markdown("---")
 
 # ============================================================
-# API KEY MANAGEMENT
-# Pehle Streamlit Secrets se key lene ki koshish karta hai
-# Agar nahi mili, toh sidebar mein manually daalne deta hai
-# ============================================================
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    st.sidebar.success("✅ API Key loaded from secrets!")
-else:
-    api_key = st.sidebar.text_input(
-        "🔑 Enter Gemini API Key:",
-        type="password",
-        help="Google AI Studio se apni free API key lein: https://aistudio.google.com/app/apikey"
-    )
-
-# Agar API key nahi hai toh app yahan ruk jaayegi
-if not api_key:
-    st.info("👋 Shuru karne ke liye sidebar mein apni **Google Gemini API Key** daalein.")
-    st.markdown("🔗 **Key kahan se lein?** [Google AI Studio](https://aistudio.google.com/app/apikey) — Bilkul FREE hai!")
-    st.stop()
-
-# ============================================================
-# GEMINI API CONFIGURE
-# ============================================================
-genai.configure(api_key=api_key)
-
-# ============================================================
-# ARTICLE GENERATION FUNCTION
-#
-# IMPORTANT FIX: gemini-1.5-flash aur gemini-1.5-pro
-# April 2025 mein RETIRED ho gaye hain.
-#
-# Ab hum ye models use karein ge (latest & free):
-#   1. gemini-2.0-flash     ← sabse best free model (FAST)
-#   2. gemini-2.0-flash-lite ← backup (lightest)
+# ARTICLE GENERATION — 3 KEYS + 2 MODELS = 6 ATTEMPTS
+# Ek bhi fail hogi toh dusri automatically try hogi
 # ============================================================
 def generate_article(topic, word_count, tone, language):
-    """
-    Yeh function Google Gemini API ko call karke article generate karta hai.
-    - topic: User ka diya hua topic
-    - word_count: Kitne words ka article chahiye
-    - tone: Formal ya Casual
-    - language: Hindi ya English
-    """
+    models_to_try = ['gemini-2.0-flash', 'gemini-2.0-flash-lite']
 
-    # Updated model list - ONLY working models (2025 mein)
-    models_to_try = [
-        'gemini-2.0-flash',       # Best free model - fastest
-        'gemini-2.0-flash-lite',  # Backup option - lightest
-    ]
-
-    # Prompt banate hain
     prompt = f"""
     Write a high-quality, SEO-optimized article on the topic: '{topic}'.
 
@@ -79,11 +41,11 @@ def generate_article(topic, word_count, tone, language):
     - Word Count: Approximately {word_count} words
     - Tone: {tone}
     - Language: {language}
-    - Style: Human-written, no AI clichés, engaging and informative
-    
+    - Style: Human-written, no AI cliches, engaging and informative
+
     Structure (use proper Markdown formatting):
     1. # Main Title (H1)
-    2. ## Introduction (hook the reader)
+    2. ## Introduction
     3. ## Section 1 - Background / Overview
     4. ## Section 2 - Key Points / Details
     5. ## Section 3 - Benefits / Importance
@@ -92,147 +54,126 @@ def generate_article(topic, word_count, tone, language):
     8. ## Section 6 - Future Outlook / Trends
     9. ## Conclusion
     10. ## FAQ (5 questions with answers)
-    
+
     Important: Use bullet points, bold text, and clear headings throughout.
     """
 
-    # Ek ek model try karo
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text, model_name  # Kaam kar gaya!
+    attempt = 0
+    total = len(API_KEYS) * len(models_to_try)
 
-        except Exception as e:
-            error_str = str(e)
+    for key_index, api_key in enumerate(API_KEYS):
+        for model_name in models_to_try:
+            attempt += 1
+            try:
+                st.info(f"Trying... Key {key_index+1} + {model_name} (Attempt {attempt}/{total})")
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                return response.text, model_name, key_index + 1
 
-            # Rate limit error (429) - thoda wait karo aur next model try karo
-            if "429" in error_str:
-                st.warning(f"⚠️ **{model_name}** ki rate limit ho gayi. Next model try kar raha hoon...")
-                time.sleep(3)
-                continue
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str:
+                    st.warning(f"Key {key_index+1} + {model_name} rate limit. Next try...")
+                    time.sleep(2)
+                    continue
+                elif "404" in error_str:
+                    st.warning(f"{model_name} not available. Next try...")
+                    continue
+                elif "API_KEY" in error_str or "invalid" in error_str.lower():
+                    st.error(f"Key {key_index+1} invalid hai! Sahi key daalo.")
+                    continue
+                else:
+                    st.warning(f"Error: {error_str[:80]}... Next try...")
+                    continue
 
-            # Model not found (404) - next try karo
-            elif "404" in error_str:
-                st.warning(f"⚠️ **{model_name}** available nahi. Next model try kar raha hoon...")
-                continue
-
-            # Invalid API Key
-            elif "API_KEY" in error_str or "invalid" in error_str.lower():
-                st.error("❌ **API Key galat hai!** Google AI Studio se nayi key lein.")
-                return None, None
-
-            # Koi aur error
-            else:
-                st.error(f"❌ Error in {model_name}: {error_str}")
-                continue
-
-    # Sab models fail ho gaye
-    return None, None
-
+    return None, None, None
 
 # ============================================================
-# SIDEBAR - Settings / Options
+# SIDEBAR SETTINGS
 # ============================================================
-st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Article Settings")
+st.sidebar.header("Article Settings")
 
 word_count = st.sidebar.select_slider(
-    "📝 Word Count:",
+    "Word Count:",
     options=[500, 800, 1000, 1500, 2000],
     value=1000
 )
 
 tone = st.sidebar.radio(
-    "🎨 Writing Tone:",
+    "Writing Tone:",
     options=["Professional & Formal", "Casual & Friendly", "Academic & Research"],
     index=0
 )
 
 language = st.sidebar.radio(
-    "🌐 Language:",
+    "Language:",
     options=["English", "Hinglish (Hindi + English Mix)"],
     index=0
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**🤖 Active Model:** `gemini-2.0-flash`")
-st.sidebar.markdown("**✅ Status:** Free Tier Available")
-st.sidebar.markdown("**📊 Free Limit:** 15 requests/minute")
-
+st.sidebar.markdown("**Keys Loaded:** 3 Active")
+st.sidebar.markdown("**Models:** gemini-2.0-flash + lite")
+st.sidebar.markdown("**Total Attempts:** 6 per request")
 
 # ============================================================
-# MAIN USER INTERFACE
+# MAIN UI
 # ============================================================
-st.subheader("📌 Enter Your Topic")
+st.subheader("Enter Your Topic")
 
 topic = st.text_input(
     "Topic likhiye:",
-    placeholder="e.g., Digital Marketing Trends 2026, AI in Healthcare, Content Writing Tips...",
-    help="Jitna specific topic hoga, utna better article banega!"
+    placeholder="e.g., Digital Marketing Trends 2026, AI in Healthcare..."
 )
 
-# Optional: Additional context
 extra_context = st.text_area(
-    "📋 Additional Context (Optional):",
-    placeholder="Koi specific points jo include karne hain? Target audience? Special requirements?",
+    "Additional Context (Optional):",
+    placeholder="Koi specific points jo include karne hain?",
     height=80
 )
 
-# Generate button
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
-    generate_btn = st.button("🚀 Generate Article", use_container_width=True, type="primary")
-
+    generate_btn = st.button("Generate Article", use_container_width=True, type="primary")
 
 # ============================================================
 # GENERATION LOGIC
 # ============================================================
 if generate_btn:
     if not topic.strip():
-        st.error("❌ Topic khali hai! Kuch toh likhiye.")
+        st.error("Topic khali hai! Kuch toh likhiye.")
     else:
-        # Final prompt mein extra context bhi add kar do agar diya ho
         full_topic = topic
         if extra_context.strip():
             full_topic = f"{topic}\n\nAdditional context: {extra_context}"
 
-        with st.spinner(f"🔍 Research aur writing jari hai... (~{word_count} words, 1-2 minutes lagte hain)"):
-            content, used_model = generate_article(full_topic, word_count, tone, language)
+        with st.spinner(f"Writing jari hai... (~{word_count} words)"):
+            content, used_model, used_key = generate_article(full_topic, word_count, tone, language)
 
-        # ---- SUCCESS ----
         if content:
-            st.success(f"✅ Article taiyar! | Model: `{used_model}` | Words: ~{len(content.split())}")
+            st.success(f"Article taiyar! | Model: {used_model} | Key #{used_key} use hui")
             st.markdown("---")
 
-            # Two column layout
             col1, col2 = st.columns([3, 1])
 
             with col1:
-                st.subheader("📄 Article Preview")
-                # Markdown render karke dikhao (formatted)
-                with st.expander("👁️ Formatted Preview (Recommended)", expanded=True):
+                st.subheader("Article Preview")
+                with st.expander("Formatted Preview", expanded=True):
                     st.markdown(content)
-
-                # Plain text bhi dikhao (copy ke liye)
-                with st.expander("📋 Plain Text (Copy/Paste ke liye)"):
+                with st.expander("Plain Text (Copy/Paste ke liye)"):
                     st.text_area("", value=content, height=400, label_visibility="collapsed")
 
             with col2:
-                st.subheader("📥 Export Options")
+                st.subheader("Export")
 
-                # --- Word Document Download ---
+                # Word Document
                 doc = Document()
-
-                # Title add karo
                 doc.add_heading(topic, level=0)
-
-                # Content add karo - line by line
                 for line in content.split('\n'):
                     line = line.strip()
                     if not line:
                         continue
-                    # Headings detect karo
                     if line.startswith('# ') and not line.startswith('## '):
                         doc.add_heading(line.replace('# ', ''), level=1)
                     elif line.startswith('## '):
@@ -244,23 +185,20 @@ if generate_btn:
                     else:
                         doc.add_paragraph(line)
 
-                # File memory mein save karo
                 bio = BytesIO()
                 doc.save(bio)
                 bio.seek(0)
 
-                # Download button
                 st.download_button(
-                    label="📥 Download Word (.docx)",
+                    label="Download Word (.docx)",
                     data=bio.getvalue(),
                     file_name=f"{topic[:30].replace(' ', '_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
 
-                # Text download bhi dete hain
                 st.download_button(
-                    label="📄 Download Text (.txt)",
+                    label="Download Text (.txt)",
                     data=content.encode('utf-8'),
                     file_name=f"{topic[:30].replace(' ', '_')}.txt",
                     mime="text/plain",
@@ -268,36 +206,23 @@ if generate_btn:
                 )
 
                 st.markdown("---")
-                st.info("""
-                **💡 Tips:**
-                - Word file directly WordPress mein import ho jaati hai
-                - Text file ko Google Docs mein paste kar sakte hain
-                - Headings automatically formatted hain
-                """)
+                st.metric("Words", len(content.split()))
+                st.metric("Characters", len(content))
 
-                # Article stats
-                words = len(content.split())
-                chars = len(content)
-                st.metric("📊 Word Count", words)
-                st.metric("📊 Characters", chars)
-
-        # ---- FAILURE ----
         else:
-            st.error("❌ Article generate nahi hua. Kuch gadbad hai.")
+            st.error("Saari 6 attempts fail ho gayi.")
             st.markdown("""
-            **Possible Solutions:**
-            1. ✅ API key check karein — Google AI Studio se nayi banayein
-            2. ✅ Internet connection check karein
-            3. ✅ Kuch minutes baad dobara try karein (rate limit)
-            4. ✅ Topic simple rakhein pehle test ke liye
+            **Kya karein:**
+            - 15-20 minute baad try karein (rate limit reset hoti hai)
+            - API keys check karein — Google AI Studio se nayi banao
+            - Internet connection check karein
             """)
-
 
 # ============================================================
 # FOOTER
 # ============================================================
 st.markdown("---")
 st.markdown(
-    "<p style='text-align:center; color:gray;'>AgencyWriter Pro | Powered by Google Gemini 2.0 Flash | Free Tier Compatible</p>",
+    "<p style='text-align:center; color:gray;'>AgencyWriter Pro | 3-Key Rotation System | Free Tier</p>",
     unsafe_allow_html=True
 )
