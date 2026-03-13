@@ -18,9 +18,9 @@ import time
 # Account 3: teesra Gmail (ya koi bhi)
 # ============================================================
 
-KEY_FROM_ACCOUNT_1 = "ACCOUNT_1_KI_KEY_YAHAN"   # <- Pehle Gmail ki key
-KEY_FROM_ACCOUNT_2 = "ACCOUNT_2_KI_KEY_YAHAN"   # <- Doosre Gmail ki key
-KEY_FROM_ACCOUNT_3 = "ACCOUNT_3_KI_KEY_YAHAN"   # <- Teesre Gmail ki key
+KEY_FROM_ACCOUNT_1 = "AIzaSyDnRQESmfZGMDlFaeMUaep7BaBaVwc1zOk"   # <- Pehle Gmail ki key
+KEY_FROM_ACCOUNT_2 = "AIzaSyCACN-AMO_reLWkXD90wbhygiMOxYQuBg0"   # <- Doosre Gmail ki key
+KEY_FROM_ACCOUNT_3 = "AIzaSyBfHrkK5f7wraDWcJ4rOsx0AXuef7eXHI8"   # <- Teesre Gmail ki key
 
 # ============================================================
 # PAGE SETUP
