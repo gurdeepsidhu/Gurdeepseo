@@ -2,93 +2,103 @@ import streamlit as st
 import google.generativeai as genai
 from docx import Document
 from io import BytesIO
-import time
 
-# --- PROFESSIONAL UI SETUP ---
-st.set_page_config(page_title="AgencyWriter Pro", page_icon="🖋️", layout="wide")
-st.title("🖋️ Professional Agency Content Engine")
-st.markdown("---")
+# --- PAGE SETUP ---
+st.set_page_config(page_title="AgencyWriter Elite v3", page_icon="🚀", layout="wide")
+st.title("🚀 Agency Content Writer Elite (2026 Edition)")
 
-# --- API KEY MANAGEMENT ---
+# --- API KEY ---
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
     api_key = st.sidebar.text_input("Enter Gemini API Key:", type="password")
 
 if not api_key:
-    st.info("👋 Swagat hai! Shuru karne ke liye Sidebar mein apni Google API Key daalein.")
+    st.info("👋 Swagat hai! Shuru karne ke liye Sidebar mein API Key daalein.")
     st.stop()
 
-# --- THE ENGINEERING CORE (Model Selection) ---
-# Hum 'gemini-1.5-flash' use karenge kyunki iska free quota sabse bada hai
+# --- ENGINEERING CORE: SMART MODEL DISCOVERY ---
 genai.configure(api_key=api_key)
 
-def generate_article(topic):
-    # Stable models ki list
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
-    
-    prompt = f"""
-    Write a high-quality, SEO-optimized article on: '{topic}'.
-    Word Count: Approximately 1500 words.
-    Style: Human-written, conversational, professional, No AI-cliches.
-    Format: Use Markdown (H1, H2, H3), Bullet points, and a Summary.
-    Include: Introduction, 5-6 Detailed Sections, and a FAQ section.
-    """
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text, model_name
-        except Exception as e:
-            if "429" in str(e):
-                st.warning(f"⚠️ {model_name} ki limit cross ho gayi. Agla model try kar raha hoon...")
-                time.sleep(2) # Thoda gap
-                continue
-            else:
-                raise e
-    return None, None
+def get_best_model():
+    """Ye function aapke account mein available sabse best model dhoondega"""
+    try:
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Priority List: Pehle hum 2.0 Flash try karenge, fir 1.5 Flash
+        priority_models = [
+            'models/gemini-2.0-flash-exp', 
+            'models/gemini-2.0-flash', 
+            'models/gemini-1.5-flash-latest', 
+            'models/gemini-1.5-flash'
+        ]
+        
+        for p_model in priority_models:
+            if p_model in available_models:
+                return p_model
+        
+        # Agar koi priority model nahi mila toh jo pehla model hai wo le lo
+        return available_models[0] if available_models else None
+    except Exception as e:
+        st.error(f"Model Discovery Error: {e}")
+        return None
 
-# --- USER INTERFACE ---
-topic = st.text_input("Topic likhiye (e.g., 'Digital Marketing Trends 2026'):")
+# Model select karna
+working_model_name = get_best_model()
 
-if st.button("Generate Article 🚀"):
+if working_model_name:
+    st.sidebar.success(f"Connected to: {working_model_name}")
+    model = genai.GenerativeModel(working_model_name)
+else:
+    st.error("API Key sahi hai par koi model nahi mil raha. Please check Google AI Studio billing/status.")
+    st.stop()
+
+# --- INTERFACE ---
+topic = st.text_input("📝 Enter Topic (e.g., 'Future of AI in 2026'):")
+
+if st.button("Generate 1500-Word SEO Article 🚀"):
     if not topic:
-        st.error("Topic toh daaliye!")
+        st.warning("⚠️ Topic toh likhiye!")
     else:
-        with st.spinner("🔍 Deep Research aur Writing jaari hai... (1500 words mein 1-2 minute lagte hain)"):
+        # High-End Engineering Prompt
+        prompt = f"""
+        Write a professional, 1500-word SEO article on the topic: '{topic}'.
+        
+        Structure:
+        1. Compelling H1 Title.
+        2. Introduction with a hook.
+        3. Table of Contents (Markdown).
+        4. 6-7 Detailed H2 and H3 sections with deep insights.
+        5. Use Bullet points, Tables, and Bold text for readability.
+        6. SEO Guidelines: Naturally integrate keywords, meta-description suggestion at the end.
+        7. Tone: Human-written, expert, and conversational. NO AI-GENERIC PHRASES.
+        """
+        
+        with st.spinner(f"✨ {working_model_name} is writing your masterpiece..."):
             try:
-                content, used_model = generate_article(topic)
+                response = model.generate_content(prompt)
+                article_text = response.text
                 
-                if content:
-                    st.success(f"✅ Article taiyar hai! (Powered by {used_model})")
-                    
-                    # Layout columns
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.subheader("Article Preview")
-                        st.text_area("", value=content, height=500)
-                    
-                    with col2:
-                        st.subheader("Export Options")
-                        # Word File Generation
-                        doc = Document()
-                        doc.add_heading(topic, 0)
-                        doc.add_paragraph(content)
-                        bio = BytesIO()
-                        doc.save(bio)
-                        
-                        st.download_button(
-                            label="📥 Download Word (.docx)",
-                            data=bio.getvalue(),
-                            file_name=f"{topic.replace(' ', '_')}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                        st.info("Tip: Is content ko copy karke direct WordPress ya Google Docs mein paste kar sakte hain.")
-                else:
-                    st.error("Maaf kijiyeki, saare models ke free quota khatam ho gaye hain. Kuch der baad try karein.")
-            
+                st.success("🎉 Article Generated Successfully!")
+                
+                # Copy area
+                st.text_area("Copy Content:", value=article_text, height=500)
+                
+                # Word Export
+                doc = Document()
+                doc.add_heading(topic, 0)
+                doc.add_paragraph(article_text)
+                bio = BytesIO()
+                doc.save(bio)
+                
+                st.download_button(
+                    label="📥 Download Word File",
+                    data=bio.getvalue(),
+                    file_name=f"{topic.replace(' ', '_')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
             except Exception as e:
-                st.error(f"Technical Error: {e}")
-                st.info("Solution: Agar 'API Key Invalid' aa raha hai, toh Google AI Studio se nayi key generate karein.")
+                if "429" in str(e):
+                    st.error("Quota Exceeded! Aap free limit cross kar chuke hain. 1 minute baad try karein ya doosri API Key use karein.")
+                else:
+                    st.error(f"Error: {e}")
